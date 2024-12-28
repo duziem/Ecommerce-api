@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/duziem/ecommerce_proj/types"
+	"github.com/lib/pq"
 )
 
 type Store struct {
@@ -152,6 +153,69 @@ func (s *Store) DeleteProduct(productID int) error {
 	_, err := s.db.Exec("DELETE FROM products WHERE id = $1", productID)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *Store) BeginTransaction() (*sql.Tx, error) {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	return tx, nil
+}
+
+func (s *Store) GetProductsByIDWithLock(tx *sql.Tx, ids []int) ([]types.Product, error) {
+	query := `
+			SELECT * 
+			FROM products 
+			WHERE id = ANY($1) 
+			FOR UPDATE;
+	`
+
+	rows, err := tx.Query(query, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch products: %w", err)
+	}
+	defer rows.Close()
+
+	var products []types.Product
+	for rows.Next() {
+		product, err := scanRowsIntoProduct(rows)
+		if err != nil {
+			return nil, err
+		}
+		products = append(products, *product)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	return products, nil
+}
+
+func (s *Store) UpdateProductQuantities(tx *sql.Tx, cartItems []types.CartCheckoutItem) error {
+	query := `
+		UPDATE products
+		SET quantity = quantity - excluded.product_quantity::integer
+		FROM (VALUES %s) AS excluded(product_id, product_quantity)
+		WHERE products.id = excluded.product_id::integer;
+	`
+
+	// Build dynamic VALUES clause
+	var args []interface{}
+	var placeholders []string
+	for i, item := range cartItems {
+		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		args = append(args, item.ProductID, item.Quantity)
+	}
+
+	finalQuery := fmt.Sprintf(query, strings.Join(placeholders, ", "))
+
+	if _, err := tx.Exec(finalQuery, args...); err != nil {
+		return fmt.Errorf("failed to update product quantities: %w", err)
 	}
 
 	return nil

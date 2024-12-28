@@ -1,6 +1,7 @@
 package types
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -61,11 +62,14 @@ type ProductStore interface {
 	UpdateProduct(Product) error
 	DeleteProduct(id int) error
 	DeleteProducts(ids []int) error
+	BeginTransaction() (*sql.Tx, error)
+	GetProductsByIDWithLock(*sql.Tx, []int) ([]Product, error)
+	UpdateProductQuantities(*sql.Tx, []CartCheckoutItem) error
 }
 
 type OrderStore interface {
-	CreateOrder(Order) (int, error)
-	CreateOrderItem(OrderItem) error
+	CreateOrder(*sql.Tx, Order) (int, error)
+	CreateOrderItems(*sql.Tx, int, []CartCheckoutItem, map[int]Product) error
 	GetOrders(id int) ([]*Order, error)
 	GetOrderByID(id int) (*Order, error)
 	UpdateOrderStatus(*Order, string) error
@@ -109,5 +113,6 @@ type LoginUserPayload struct {
 }
 
 type CartCheckoutPayload struct {
-	Items []CartCheckoutItem `json:"items" validate:"required"`
+	Items   []CartCheckoutItem `json:"items" validate:"required"`
+	Address string             `json:"address" validate:"required"`
 }

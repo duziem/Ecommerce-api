@@ -48,25 +48,73 @@ func (h *Handler) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	productIds, err := getCartItemsIDs(cart.Items)
+	productIDs, err := getCartItemsIDs(cart.Items)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	// Get products
-	products, err := h.store.GetProductsByID(productIds)
+	// Use a transaction for atomicity
+	tx, err := h.store.BeginTransaction()
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to start transaction: %v", err))
+		return
+	}
+	defer tx.Rollback() // Ensure rollback on failure
+
+	// Fetch products within the transaction to ensure consistency
+	products, err := h.store.GetProductsByIDWithLock(tx, productIDs)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to fetch products: %v", err))
 		return
 	}
 
-	orderID, totalPrice, err := h.createOrder(products, cart.Items, userID)
-	if err != nil {
+	// create a map of products for easier access
+	productsMap := make(map[int]types.Product)
+	for _, product := range products {
+		productsMap[product.ID] = product
+	}
+
+	// Validate stock availability
+	if err := checkIfCartIsInStock(cart.Items, productsMap); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
+	// Calculate total price
+	totalPrice := calculateTotalPrice(cart.Items, productsMap)
+
+	// Update product quantities
+	if err := h.store.UpdateProductQuantities(tx, cart.Items); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to update product quantities: %v", err))
+		return
+	}
+
+	// Create order
+	orderID, err := h.orderStore.CreateOrder(tx, types.Order{
+		UserID:  userID,
+		Total:   totalPrice,
+		Status:  "pending",
+		Address: cart.Address, // Use address from the payload
+	})
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create order: %v", err))
+		return
+	}
+
+	// Create order items
+	if err := h.orderStore.CreateOrderItems(tx, orderID, cart.Items, productsMap); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create order items: %v", err))
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to commit transaction: %v", err))
+		return
+	}
+
+	// Respond with success
 	utils.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"total_price": totalPrice,
 		"order_id":    orderID,

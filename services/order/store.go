@@ -3,6 +3,7 @@ package order
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/duziem/ecommerce_proj/types"
 )
@@ -13,21 +14,6 @@ type Store struct {
 
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
-}
-
-func (s *Store) CreateOrder(order types.Order) (int, error) {
-	var lastInsertID int
-	err := s.db.QueryRow("INSERT INTO orders (userId, total, status, address) VALUES ($1, $2, $3, $4) RETURNING id", order.UserID, order.Total, order.Status, order.Address).Scan(&lastInsertID)
-	if err != nil {
-		return 0, err
-	}
-
-	return lastInsertID, nil
-}
-
-func (s *Store) CreateOrderItem(orderItem types.OrderItem) error {
-	_, err := s.db.Exec("INSERT INTO order_items (orderId, productId, quantity, price) VALUES ($1, $2, $3, $4)", orderItem.OrderID, orderItem.ProductID, orderItem.Quantity, orderItem.Price)
-	return err
 }
 
 func (s *Store) GetOrders(userID int) ([]*types.Order, error) {
@@ -79,6 +65,47 @@ func (s *Store) UpdateOrderStatus(order *types.Order, status string) error {
 	_, err := s.db.Exec(query, status, order.ID)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *Store) CreateOrder(tx *sql.Tx, order types.Order) (int, error) {
+	var orderID int
+
+	// SQL statement to insert a new order into the orders table
+	query := `
+			INSERT INTO orders (userId, total, status, address, createdAt)
+			VALUES ($1, $2, $3, $4, NOW())
+			RETURNING id;
+	`
+
+	// Execute the query within the transaction
+	err := tx.QueryRow(query, order.UserID, order.Total, order.Status, order.Address).Scan(&orderID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create order: %w", err)
+	}
+
+	return orderID, nil
+}
+
+func (s *Store) CreateOrderItems(tx *sql.Tx, orderID int, cartItems []types.CartCheckoutItem, products map[int]types.Product) error {
+	query := `
+			INSERT INTO order_items (orderid, productid, quantity, price)
+			VALUES %s;
+	`
+
+	var args []interface{}
+	var placeholders []string
+	for i, item := range cartItems {
+		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4))
+		args = append(args, orderID, item.ProductID, item.Quantity, products[item.ProductID].Price)
+	}
+
+	finalQuery := fmt.Sprintf(query, strings.Join(placeholders, ", "))
+
+	if _, err := tx.Exec(finalQuery, args...); err != nil {
+		return fmt.Errorf("failed to create order items: %w", err)
 	}
 
 	return nil
