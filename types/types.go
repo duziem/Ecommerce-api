@@ -52,6 +52,7 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id int) (*User, error)
 	CreateUser(User) error
+	UpdateUserRole(User, string) error
 }
 
 type ProductStore interface {
@@ -110,6 +111,10 @@ type RegisterUserPayload struct {
 type LoginUserPayload struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
+}
+
+type GetUserPayload struct {
+	Email string `json:"email" validate:"required,email"`
 }
 
 type CartCheckoutPayload struct {

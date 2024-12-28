@@ -66,6 +66,17 @@ func (s *Store) GetUserByID(id int) (*types.User, error) {
 	return u, nil
 }
 
+func (s *Store) UpdateUserRole(user types.User, role string) error {
+	query := "UPDATE users SET role = $1 WHERE id = $2"
+
+	_, err := s.db.Exec(query, role, user.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func scanRowsIntoUser(rows *sql.Rows) (*types.User, error) {
 	user := new(types.User)
 

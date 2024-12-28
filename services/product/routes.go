@@ -141,10 +141,6 @@ func (h *Handler) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	// if product == nil { // Check if the product was found
-	// 	utils.WriteError(w, http.StatusNotFound, fmt.Errorf("product not found"))
-	// 	return
-	// }
 
 	// Update only provided fields
 	if productPayload.Name != nil {

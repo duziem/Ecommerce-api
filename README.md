@@ -7,8 +7,8 @@ https://www.postman.com/cloudy-sunset-241894/new-workspace/documentation/755tanx
 * Need to install Postgres. The app uses a Postgres Database [Postgres download](https://www.postgresql.org/download/)
 
 ## Step by Step
-* Clone the repo git clone <repo path>
-* Create a database called ecommerce_db. This can be done using psql by running the SQL statement ```Create database ecommerce_db```
+* Clone the repo ```git clone <repo path>```
+* Create a database called ecommerce_db. This can be done using psql by running the SQL statement ```CREATE database ecommerce_db```
 * Run migrations
   * Steps:
     * Run these command to create tables
@@ -28,7 +28,13 @@ https://www.postman.com/cloudy-sunset-241894/new-workspace/documentation/755tanx
       go run cmd/migrate/main.go down
     ```
 * Navigate to the repo -> run the application using the command: ```go run cmd/main.go```
-* Send requests to the application using tools like Postman, swagger, etc.
+* Test the application by sending requests using tools like Postman, swagger, etc.
+* Some endpoints are restricted to admins. By default a user is created with a role "user" but can be given Admin permissions by updating the user's role attribute. The easiest way to do this is by performing the following steps
+  * Call the register-user endpoint in the documentation
+  * Next, call the login-user endpoint to login and create a token. The token is automatically assigned to an environment variable to enable authenticated requests pass
+  * Next, call the get-user endpoint to get the user id
+  * Lastly, call the update-user endpoint to update your user's role to admin
+* This can also be done via psql by running the sql statement ```UPDATE users set role = 'admin' where id = $userID``` and $userID should be replaced with the actual user ID
 
 ## File structure
 * Cmd
