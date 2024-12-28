@@ -7,8 +7,14 @@ https://www.postman.com/cloudy-sunset-241894/new-workspace/documentation/755tanx
 * Need to install Postgres. The app uses a Postgres Database [Postgres download](https://www.postgresql.org/download/)
 
 ## Step by Step
-* Clone the repo ```git clone <repo path>```
+* Clone the repo ```git clone <repo url>```
 * Create a database called ecommerce_db. This can be done using psql by running the SQL statement ```CREATE database ecommerce_db```
+* Create a .env file in the root dir and add these env variables
+  * DB_USER
+  * DB_NAME
+  * DB_HOST(optional, default is localhost)
+  * DB_PASSWORD(only include if your postgres DB requires a password to connect)
+  * DB_PORT(optional, default is 5432)
 * Run migrations
   * Steps:
     * Run these command to create tables
@@ -62,17 +68,17 @@ https://www.postman.com/cloudy-sunset-241894/new-workspace/documentation/755tanx
   * Services/auth/password.go - Contains functions for password having
 
 * User
-  * User/routes.go
-  * User/store.go
+  * User/routes.go - contains user routes and route handlers
+  * User/store.go - user repository
 
 * Product
-  * Product/routes.go
-  * Product/store.go
+  * Product/routes.go - contains product routes and route handlers
+  * Product/store.go - product repository
 
 * Order
-  * Order/routes.go
-  * Order/store.go
+  * Order/routes.go - contains order routes and route handlers
+  * Order/store.go - order repository
 
 * Cart
-  * Cart/routes.go
+  * Cart/routes.go - contains cart routes and route handlers
 

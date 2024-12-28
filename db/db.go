@@ -10,7 +10,7 @@ import (
 
 type PostgresConfig struct {
 	Host     string
-	Port     int64
+	Port     int
 	User     string
 	Password string
 	DbName   string
@@ -18,8 +18,14 @@ type PostgresConfig struct {
 }
 
 func NewPostgresStorage(cfg PostgresConfig) (*sql.DB, error) {
-	connStr := fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.DbName, cfg.SSLMode)
+	var connStr string
+	if cfg.Password != "" {
+		connStr = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+			cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DbName, cfg.SSLMode)
+	} else {
+		connStr = fmt.Sprintf("host=%s port=%d user=%s dbname=%s sslmode=%s",
+			cfg.Host, cfg.Port, cfg.User, cfg.DbName, cfg.SSLMode)
+	}
 
 	// Open the database connection
 	db, err := sql.Open("postgres", connStr)
